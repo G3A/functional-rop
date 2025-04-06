@@ -1,63 +1,119 @@
 package co.g3a.functionalrop;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.Function;
 
-/**
- * Fluent wrapper para Result<T> + CompletionStage.
- */
-public class ResultPipeline<T> {
+public class ResultPipeline<T, E> {
 
-    private final CompletionStage<Result<T>> stage;
+    private final CompletionStage<Result<T, E>> result;
 
-    public ResultPipeline(CompletionStage<Result<T>> stage) {
-        this.stage = stage;
+    private ResultPipeline(CompletionStage<Result<T, E>> result) {
+        this.result = result;
     }
 
-    public static <T> ResultPipeline<T> use(T input) {
-        return new ResultPipeline<>(CompletableFuture.completedFuture(Result.success(input)));
+    public static <T, E> ResultPipeline<T, E> use(T value) {
+        return new ResultPipeline<>(CompletableFuture.completedFuture(Result.success(value)));
     }
 
-    public static <T> ResultPipeline<T> fromResult(Result<T> result) {
-        return new ResultPipeline<>(CompletableFuture.completedFuture(result));
-    }
-
-    public static <T> ResultPipeline<T> fromAsync(CompletionStage<Result<T>> stage) {
-        return new ResultPipeline<>(stage);
-    }
-
-    public <U> ResultPipeline<U> map(Function<? super T, ? extends U> mapper) {
-        CompletionStage<Result<U>> newStage = stage.thenApply(result -> result.map(mapper));
-        return new ResultPipeline<>(newStage);
-    }
-
-    public <U> ResultPipeline<U> flatMap(Function<? super T, Result<U>> mapper) {
-        CompletionStage<Result<U>> newStage = stage.thenApply(result -> result.flatMap(mapper));
-        return new ResultPipeline<>(newStage);
-    }
-
-    public <U> ResultPipeline<U> flatMapAsync(Function<? super T, CompletionStage<Result<U>>> asyncMapper) {
-        CompletionStage<Result<U>> newStage = stage.thenCompose(result -> result.flatMapAsync(asyncMapper));
-        return new ResultPipeline<>(newStage);
-    }
-
-    public ResultPipeline<T> validate(Function<T, ValidationResult<T>> validator) {
-        CompletionStage<Result<T>> newStage = stage.thenApply(res -> {
+    public ResultPipeline<T, E> validate(Function<T, ValidationResult<T>> validator, Function<String, E> errorMapper) {
+        CompletionStage<Result<T, E>> newResult = result.thenApply(res -> {
             if (!res.isSuccess()) return res;
-            ValidationResult<T> val = validator.apply(res.getValue());
-            return val.isValid()
-                ? Result.success(val.getValue())
-                : Result.failure(String.join(", ", val.getErrors()));
+            ValidationResult<T> validation = validator.apply(res.getValue());
+            if (!validation.isValid()) {
+                return Result.failure(errorMapper.apply(validation.getErrors().get(0)));
+            }
+            return Result.success(validation.getValue());
         });
-        return new ResultPipeline<>(newStage);
+        return new ResultPipeline<>(newResult);
     }
 
-    public CompletionStage<Result<T>> toResultAsync() {
-        return stage;
+    public <U> ResultPipeline<U, E> map(Function<T, U> mapper) {
+        CompletionStage<Result<U, E>> newResult = result.thenApply(res -> res.map(mapper));
+        return new ResultPipeline<>(newResult);
     }
 
-    public void thenAccept(java.util.function.Consumer<Result<T>> consumer) {
-        stage.thenAccept(consumer);
+    public <U> ResultPipeline<U, E> flatMapAsync(Function<T, CompletionStage<Result<U, E>>> mapper) {
+        CompletionStage<Result<U, E>> newResult = result.thenCompose(res ->
+                res.isSuccess()
+                        ? mapper.apply(res.getValue())
+                        : CompletableFuture.completedFuture(Result.failure(res.getError()))
+        );
+        return new ResultPipeline<>(newResult);
+    }
+
+    public CompletionStage<Result<T, E>> build() {
+        return result;
+    }
+
+    public CompletionStage<Void> thenAccept(java.util.function.Consumer<Result<T, E>> consumer) {
+        return result.thenAccept(consumer);
+    }
+
+    // 🔥 Nuevo método para ejecutar tareas en paralelo con manejo de múltiples errores
+    public static <T, E> CompletionStage<Result<List<Object>, E>> runInParallel(
+            T input,
+            List<Function<T, CompletionStage<Result<?, E>>>> tasks,
+            Function<List<E>, E> errorCombiner
+    ) {
+        List<CompletionStage<Result<?, E>>> futures = tasks.stream()
+                .map(task -> task.apply(input))
+                .toList();
+
+        List<CompletableFuture<Result<?, E>>> cfList = futures.stream()
+                .map(CompletionStage::toCompletableFuture)
+                .toList();
+
+        return CompletableFuture.allOf(cfList.toArray(new CompletableFuture[0]))
+                .thenApply(v -> {
+                    List<Object> results = new ArrayList<>();
+                    List<E> errores = new ArrayList<>();
+
+                    for (CompletableFuture<Result<?, E>> cf : cfList) {
+                        Result<?, E> result = cf.join();
+                        if (result.isSuccess()) {
+                            results.add(result.getValue());
+                        } else {
+                            errores.add(result.getError());
+                        }
+                    }
+
+                    if (!errores.isEmpty()) {
+                        return Result.failure(errorCombiner.apply(errores));
+                    }
+
+                    return Result.success(results);
+                });
+    }
+
+    public static <Input, Output, E> CompletionStage<Result<List<Output>, E>> runInParallelTyped(
+            Input input,
+            List<Function<Input, CompletionStage<Result<Output, E>>>> tasks,
+            Function<List<E>, E> errorCombiner
+    ) {
+        List<CompletableFuture<Result<Output, E>>> futures = tasks.stream()
+                .map(task -> task.apply(input).toCompletableFuture())
+                .toList();
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(v -> {
+                    List<Output> results = new ArrayList<>();
+                    List<E> errors = new ArrayList<>();
+
+                    for (CompletableFuture<Result<Output, E>> future : futures) {
+                        Result<Output, E> res = future.join();
+                        if (res.isSuccess()) {
+                            results.add(res.getValue());
+                        } else {
+                            errors.add(res.getError());
+                        }
+                    }
+
+                    if (!errors.isEmpty()) {
+                        return Result.failure(errorCombiner.apply(errors));
+                    }
+
+                    return Result.success(results);
+                });
     }
 }

@@ -7,6 +7,7 @@ import co.g3a.functionalrop.logging.StructuredLogger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.List;
+import java.util.function.Function;
 
 public class UseCase {
 
@@ -16,7 +17,6 @@ public class UseCase {
     public UseCase(ErrorMessageProvider messages) {
         this.messages = messages;
     }
-
 
     public static class Request {
         public String email;
@@ -42,222 +42,241 @@ public class UseCase {
         }
     }
 
-    public CompletionStage<Result<String>> executeUseCase(Request request) {
+    public CompletionStage<Result<String, AppError>> executeUseCase(Request request) {
         ValidationResult<Request> validation = validateRequest(request);
         if (!validation.isValid()) {
-            return CompletableFuture.completedFuture(Result.failure(String.join(", ", validation.getErrors())));
+            AppError error = mapValidationToAppError(validation.getErrors().get(0));
+            return CompletableFuture.completedFuture(Result.failure(error));
         }
 
         Request canonical = canonicalizeEmail(validation.getValue());
 
         return updateDb(canonical)
-            .thenCompose(res -> res.flatMapAsync(this::sendEmail))
-            .thenApply(res -> res.map(r -> "Success: " + r.email));
+                .thenCompose(res -> res.flatMapAsync(this::sendEmail))
+                .thenCompose(res -> res.flatMapAsync(this::generateActivationCode))
+                .thenApply(res -> res.map(r -> "Success"));
     }
-
-
 
     public ValidationResult<Request> validateRequest(Request r) {
         List<ValidationResult<Void>> validations = List.of(
-                validateNotEmpty(r.email, messages.get("empty_email")),
-                validateEmailFormat(r.email, messages.get("invalid_email")),
-                validateMinLength(r.name, 3, messages.get("short_name")),
-                validateNotEmpty(r.password, messages.get("empty_password")),
-                validateMinLength(r.password, 8, messages.get("short_password")),
-                validateMinAge(r.age, 18, messages.get("underage"))
+                validateNotEmpty(r.email, "empty_email"),
+                validateEmailFormat(r.email, "invalid_email"),
+                validateMinLength(r.name, 3, "short_name"),
+                validateNotEmpty(r.password, "empty_password"),
+                validateMinLength(r.password, 8, "short_password"),
+                validateMinAge(r.age, 18, "underage")
         );
 
-        return ValidationResult.combine(validations)
-                .map(x -> r); // devolver el request si todo fue válido
+        return ValidationResult.combine(validations).map(x -> r);
     }
-    private ValidationResult<Void> validateNotEmpty(String value, String errorMsg) {
+
+    private ValidationResult<Void> validateNotEmpty(String value, String errorKey) {
         return (value == null || value.trim().isEmpty())
-                ? ValidationResult.invalid(errorMsg)
+                ? ValidationResult.invalid(errorKey)
                 : ValidationResult.valid(null);
     }
 
-    private ValidationResult<Void> validateMinLength(String value, int minLength, String errorMsg) {
+    private ValidationResult<Void> validateMinLength(String value, int minLength, String errorKey) {
         return (value == null || value.length() < minLength)
-                ? ValidationResult.invalid(errorMsg)
+                ? ValidationResult.invalid(errorKey)
                 : ValidationResult.valid(null);
     }
 
-    private ValidationResult<Void> validateEmailFormat(String email, String errorMsg) {
+    private ValidationResult<Void> validateEmailFormat(String email, String errorKey) {
         return (!email.contains("@") || !email.contains("."))
-                ? ValidationResult.invalid(errorMsg)
+                ? ValidationResult.invalid(errorKey)
                 : ValidationResult.valid(null);
     }
 
-    private ValidationResult<Void> validateMinAge(int age, int minAge, String errorMsg) {
+    private ValidationResult<Void> validateMinAge(int age, int minAge, String errorKey) {
         return (age < minAge)
-                ? ValidationResult.invalid(errorMsg)
+                ? ValidationResult.invalid(errorKey)
                 : ValidationResult.valid(null);
     }
 
-    /**
-     *  Single track function: Trim spaces and lowercase
-     *  A simple function that doesn't generate errors – a "one-track" function
-     */
     public Request canonicalizeEmail(Request r) {
         r.email = r.email.trim().toLowerCase();
         return r;
     }
 
-
-    /**
-     * Dead-end function: performs DB update as a side effect.
-     * Doesn't transform the input but returns it wrapped in Result.
-     * Only fails if side effect fails (e.g., DB error), preserving the pipeline.
-     * A function that doesn't return anything– a "dead-end" function.
-     */
-    public CompletionStage<Result<Request>> updateDb(Request r) {
+    public CompletionStage<Result<Request, AppError>> updateDb(Request r) {
         return DeadEnd.runSafe(
                 r,
                 req -> {
                     System.out.println("🗃️ Guardando en base de datos: " + req.email);
                     sleep(100);
                 },
-                "DB error",
+                ex -> new AppError.DbError("Error guardando en DB: " + ex.getMessage()),
                 "update_db",
                 logger
         );
     }
 
-    /**
-     * Functions that throw exceptions
-     *
-     * Dead-end function: sends an email as a side-effect.
-     * Does not modify input, returns it in a Result.
-     * Exceptions are caught and returned as Failure.
-     * 🧙‍♂️ "Do or do not. There is no try." – Yoda
-     */
-    public CompletionStage<Result<Request>> sendEmail(Request r) {
+    public CompletionStage<Result<Request, AppError>> sendEmail(Request r) {
         return DeadEnd.runSafe(
                 r,
                 req -> {
                     System.out.println("📧 Enviando email a: " + req.email);
-                    if (req.email.contains("fail")) {
-                        throw new RuntimeException("SMTP error");
-                    }
+                    if (req.email.contains("fail")) throw new RuntimeException("SMTP error");
                     sleep(100);
                 },
-                "SendEmail error",
+                ex -> new AppError.EmailSendError("Error al enviar email: " + ex.getMessage()),
                 "send_email",
                 logger
         );
     }
 
-    public CompletionStage<Result<String>> generateActivationCode(Request r) {
+    public CompletionStage<Result<String, AppError>> generateActivationCode(Request r) {
         return DeadEnd.runSafeTransform(
                 r,
                 req -> {
                     if (req.email.contains("@example.com")) {
-                        throw new IllegalArgumentException("Domain not allowed");
+                        throw new IllegalArgumentException("Dominio no permitido");
                     }
-                    // Simula creación de código único
-                    return req.name.substring(0, 2).toUpperCase() + "-" + System.currentTimeMillis();
+                    return "AC-" + System.currentTimeMillis();
                 },
-                "Activation code error",
+                ex -> new AppError.ActivationCodeError("Fallo generando código: " + ex.getMessage()),
                 "generate_activation_code",
                 logger
         );
     }
 
     private void sleep(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException ignored) { }
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ignored) {
+        }
+    }
+
+    public AppError mapValidationToAppError(String errorMessage) {
+        return switch (errorMessage) {
+            case "empty_email" -> new AppError.EmailBlank();
+            case "invalid_email" -> new AppError.EmailInvalid("unknown");
+            case "short_name" -> new AppError.NameTooShort();
+            case "empty_password" -> new AppError.PasswordBlank();
+            case "short_password" -> new AppError.PasswordTooShort();
+            case "underage" -> new AppError.UnderAge(0);
+            default -> new AppError.DbError(errorMessage); // fallback para mensajes no mapeados
+        };
     }
 
     public static void main(String[] args) {
-        var provider = new ErrorMessageProvider("es"); // Cambia a "en" para inglés
+        var provider = new ErrorMessageProvider("es");
         UseCase useCase = new UseCase(provider);
-
-        //alternativaDeUso1(useCase);
-        //useCase.alternativaDeUso2();
         useCase.alternativaDeUso3();
-        
+        useCase.ejecutarYMostrarConsultaParalela();
     }
 
-    private static void alternativaDeUso1(UseCase uc) {
+    private void alternativaDeUso3() {
         var request = new Request(
-                "  TEST@ejemplo.COM ",    // email
-                "Juan Pérez",             // name
-                "superpassword",          // password
-                30                        // age
+                " TEST@ejemplo.COM ",
+                "Juan Pérez",
+                "superpassword",
+                30
         );
 
-        uc.executeUseCase(request)
-                .thenAccept(result -> {
-                    if (result.isSuccess()) {
-                        System.out.println("✅ Resultado: " + result.getValue());
-                    } else {
-                        System.out.println("❌ Error: " + result.getError());
-                    }
-                });
-
-        try { Thread.sleep(1000); } catch (Exception ignored) { }
-    }
-
-    //✅ Ejemplo de uso fluido
-    private void alternativaDeUso2() {
-        var request = new Request(
-                "  TEST@ejemplo.COM ",    // email
-                "Juan Pérez",             // name
-                "superpassword",          // password
-                30                        // age
-        );
-
-        ResultPipeline.use(request)
-                .validate(this::validateRequest)
+        ResultPipeline
+                .<Request, AppError>use(request) // 👈 Aseguras tipo explícito
+                .validate(this::validateRequest, this::mapValidationToAppError)
                 .map(this::canonicalizeEmail)
                 .flatMapAsync(this::updateDb)
                 .flatMapAsync(this::sendEmail)
-                .map(r -> "Success")
-                .thenAccept(result -> {
-                    if (result.isSuccess()) {
-                        System.out.println("✅ Resultado fluido: " + result.getValue());
-                    } else {
-                        System.out.println("❌ Error fluido: " + result.getError());
-                    }
-                });
-
-        try { Thread.sleep(1000); } catch (Exception ignored) { }
-    }
-
-    //🧠 Alternativa simplificada con ResultPipeline.use()
-    //✅ Ejemplo de uso fluido mejor aún:
-    private void alternativaDeUso3() {
-        /*
-        var request = new Request(
-                "  TEST@ejemplo.COM ", // email
-                "Jo",                  // name (demasiado corto)
-                "123456",              // password (corta)
-                16                     // edad (menor)
-        );
-
-         */
-        var request = new Request(
-                "  TEST@ejemplo.COM ",    // email
-                "Juan Pérez",             // name
-                "superpassword",          // password
-                30                        // age
-        );
-        ResultPipeline.use(request)
-                .validate(this::validateRequest)
-                .map(this::canonicalizeEmail)
-                .flatMapAsync(this::updateDb)      // Dead-end
-                .flatMapAsync(this::sendEmail)     // Dead-end + catch exceptions
-                .flatMapAsync(this::generateActivationCode) // Devuelve CompletionStage<Result<String>>
+                .flatMapAsync(this::generateActivationCode)
                 .map(r -> "Success")
                 .thenAccept(result -> {
                     if (result.isSuccess()) {
                         System.out.println("✅ Resultado: " + result.getValue());
                     } else {
-                        System.out.println("❌ Error: " + result.getError());
+                        System.out.println("❌ Error: " + ErrorMessageMapper.toUserMessage(result.getError()));
                     }
                 });
 
-        try { Thread.sleep(1000); } catch (Exception ignored) { }
+        try {
+            Thread.sleep(1000); // Esperar async
+        } catch (Exception ignored) {
+        }
     }
 
+
+    public void ejecutarYMostrarConsultaParalela() {
+        consultarDatosUsuarioParalelo("u123")
+                .thenAccept(result -> {
+                    if (result.isSuccess()) {
+                        DatosUsuario datos = result.getValue();
+                        System.out.println("✅ Datos del usuario:");
+                        System.out.println("Nombre: " + datos.nombre());
+                        System.out.println("Edad: " + datos.edad());
+                        System.out.println("Activa: " + datos.cuentaActiva());
+                    } else {
+                        System.out.println("❌ Error al consultar datos: " + ErrorMessageMapper.toUserMessage(result.getError()));
+                    }
+                });
+
+        try {
+            Thread.sleep(1000); // Esperar async
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // Simulan llamadas a base de datos o servicios externos
+    public CompletionStage<Result<String, AppError>> buscarNombreUsuario(String id) {
+        return simulateSuccess("Nombre: Juan", 300);
+    }
+
+    public CompletionStage<Result<Integer, AppError>> buscarEdadUsuario(String id) {
+        return simulateSuccess(30, 200);
+    }
+
+    public CompletionStage<Result<Boolean, AppError>> verificarCuentaActiva(String id) {
+        return simulateSuccess(true, 100);
+    }
+
+    // Simulación genérica
+    private <T> CompletionStage<Result<T, AppError>> simulateSuccess(T value, long delayMs) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(delayMs);
+                return Result.success(value);
+            } catch (InterruptedException e) {
+                return Result.failure(new AppError.DbError("Interrupted"));
+            }
+        });
+    }
+
+    public CompletionStage<Result<DatosUsuario, AppError>> consultarDatosUsuarioParalelo(String userId) {
+        // Encapsular cada tarea como Function<String, CompletionStage<Result<Object>>>
+        Function<String, CompletionStage<Result<Object, AppError>>> nombreTask =
+                id -> buscarNombreUsuario(id).thenApply(r -> r.map(v -> (Object) v));
+
+        Function<String, CompletionStage<Result<Object, AppError>>> edadTask =
+                id -> buscarEdadUsuario(id).thenApply(r -> r.map(v -> (Object) v));
+
+        Function<String, CompletionStage<Result<Object, AppError>>> estadoTask =
+                id -> verificarCuentaActiva(id).thenApply(r -> r.map(v -> (Object) v));
+
+        List<Function<String, CompletionStage<Result<Object, AppError>>>> tasks = List.of(
+                nombreTask, edadTask, estadoTask
+        );
+
+        return ResultPipeline.runInParallelTyped(
+                userId,
+                tasks,
+                AppError.MultipleErrors::new
+        ).thenApply(result -> {
+            if (result.isSuccess()) {
+                List<Object> values = result.getValue();
+
+                String nombre = (String) values.get(0);
+                int edad = (Integer) values.get(1);
+                boolean activa = (Boolean) values.get(2);
+
+                DatosUsuario datosUsuario = new DatosUsuario(nombre, edad, activa);
+                return Result.success(datosUsuario);
+            } else {
+                return Result.failure(result.getError());
+            }
+        });
+    }
 
 }

@@ -6,23 +6,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
-/**
- * Utility class for safely executing side-effecting operations (dead-end functions),
- * both with and without transformation.
- * <p>
- * Supports structured logging and consistent functional error handling (Result.failure).
- */
 public class DeadEnd {
 
-    // ------------------------------------------------------------------------------------------------
-    // 1️⃣ Dead-end function: performs effect, returns same value (for use in pipelines)
-    // ------------------------------------------------------------------------------------------------
-
-    public static <T> CompletionStage<Result<T>> runSafe(
+    public static <T, E> CompletionStage<Result<T, E>> runSafe(
             T input,
             Consumer<T> effect,
-            String errorMessage,
+            Function<Throwable, E> errorMapper,
             String eventName,
             StructuredLogger logger
     ) {
@@ -31,48 +22,29 @@ public class DeadEnd {
             try {
                 effect.accept(input);
                 long duration = System.currentTimeMillis() - start;
-
                 logger.log(eventName, Map.of(
                         "status", "success",
                         "duration_ms", duration,
                         "input", input
                 ));
-
                 return Result.success(input);
             } catch (Exception e) {
                 long duration = System.currentTimeMillis() - start;
-
                 logger.log(eventName, Map.of(
                         "status", "failure",
                         "duration_ms", duration,
                         "error", e.getMessage(),
                         "input", input
                 ));
-
-                return Result.failure(errorMessage + ": " + e.getMessage());
+                return Result.failure(errorMapper.apply(e));
             }
         });
     }
 
-    /**
-     * Overload of runSafe() without logger (no-op logger / silent).
-     */
-    public static <T> CompletionStage<Result<T>> runSafe(
-            T input,
-            Consumer<T> effect,
-            String errorMessage
-    ) {
-        return runSafe(input, effect, errorMessage, "unknown_event", (e, d) -> {});
-    }
-
-    // ------------------------------------------------------------------------------------------------
-    // 2️⃣ Transformer function: applies a function In -> Out with side effects, wraps in Result
-    // ------------------------------------------------------------------------------------------------
-
-    public static <In, Out> CompletionStage<Result<Out>> runSafeTransform(
+    public static <In, Out, E> CompletionStage<Result<Out, E>> runSafeTransform(
             In input,
             DeadEndFunction<In, Out> function,
-            String errorMessage,
+            Function<Throwable, E> errorMapper,
             String eventName,
             StructuredLogger logger
     ) {
@@ -81,38 +53,23 @@ public class DeadEnd {
             try {
                 Out output = function.apply(input);
                 long duration = System.currentTimeMillis() - start;
-
                 logger.log(eventName, Map.of(
                         "status", "success",
                         "duration_ms", duration,
                         "input", input,
                         "output", output
                 ));
-
                 return Result.success(output);
             } catch (Exception e) {
                 long duration = System.currentTimeMillis() - start;
-
                 logger.log(eventName, Map.of(
                         "status", "failure",
                         "duration_ms", duration,
                         "error", e.getMessage(),
                         "input", input
                 ));
-
-                return Result.failure(errorMessage + ": " + e.getMessage());
+                return Result.failure(errorMapper.apply(e));
             }
         });
-    }
-
-    /**
-     * Overload of runSafeTransform() without logger.
-     */
-    public static <In, Out> CompletionStage<Result<Out>> runSafeTransform(
-            In input,
-            DeadEndFunction<In, Out> function,
-            String errorMessage
-    ) {
-        return runSafeTransform(input, function, errorMessage, "unknown_event", (e, d) -> {});
     }
 }
