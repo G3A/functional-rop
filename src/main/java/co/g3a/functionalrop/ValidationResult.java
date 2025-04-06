@@ -3,6 +3,10 @@ package co.g3a.functionalrop;
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * Representa el resultado de una validación: puede ser válido (un valor)
+ * o inválido (una lista de errores).
+ */
 public sealed interface ValidationResult<T>
         permits ValidationResult.Valid, ValidationResult.Invalid {
 
@@ -10,6 +14,7 @@ public sealed interface ValidationResult<T>
     T getValue();
     List<String> getErrors();
 
+    // 🟢 Factories
     static <T> ValidationResult<T> valid(T value) {
         return new Valid<>(value);
     }
@@ -22,6 +27,7 @@ public sealed interface ValidationResult<T>
         return new Invalid<>(List.of(error));
     }
 
+    // 🧠 Transformar valor si es válido
     default <U> ValidationResult<U> map(Function<? super T, ? extends U> mapper) {
         return switch (this) {
             case Valid<T> v -> valid(mapper.apply(v.value()));
@@ -29,6 +35,7 @@ public sealed interface ValidationResult<T>
         };
     }
 
+    // ➕ Combinar múltiples validaciones y acumular errores
     static <T> ValidationResult<T> combine(List<ValidationResult<T>> results) {
         List<String> allErrors = results.stream()
                 .filter(r -> !r.isValid())
@@ -40,6 +47,7 @@ public sealed interface ValidationResult<T>
                 : invalid(allErrors);
     }
 
+    // ✅ Resultado válido
     record Valid<T>(T value) implements ValidationResult<T> {
         @Override public boolean isValid() { return true; }
 
@@ -50,6 +58,7 @@ public sealed interface ValidationResult<T>
         }
     }
 
+    // ❌ Resultado inválido
     record Invalid<T>(List<String> errors) implements ValidationResult<T> {
         @Override public boolean isValid() { return false; }
 

@@ -8,7 +8,17 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * Clase de utilidad para ejecutar de forma segura operaciones con efectos secundarios (funciones sin salida o dead-end functions),
+ * con y sin transformación.
+ * <p>
+ * Admite registro estructurado y gestión consistente de errores funcionales (Result.failure).
+ */
 public class DeadEnd {
+
+    // ------------------------------------------------------------------------------------------------
+    // 1️⃣ Dead-end function: performs effect, returns same value (for use in pipelines)
+    // ------------------------------------------------------------------------------------------------
 
     public static <T, E> CompletionStage<Result<T, E>> runSafe(
             T input,
@@ -40,6 +50,10 @@ public class DeadEnd {
             }
         });
     }
+
+    // ------------------------------------------------------------------------------------------------
+    // 2️⃣ Transformer function: applies a function In -> Out with side effects, wraps in Result
+    // ------------------------------------------------------------------------------------------------
 
     public static <In, Out, E> CompletionStage<Result<Out, E>> runSafeTransform(
             In input,

@@ -4,6 +4,9 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 
+/**
+ * Fluent wrapper para Result<T, E> + CompletionStage.
+ */
 public class ResultPipeline<T, E> {
 
     private final CompletionStage<Result<T, E>> result;

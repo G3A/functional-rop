@@ -1,0 +1,294 @@
+{
+	"info": {
+		"_postman_id": "b32167cc-4935-4f17-9393-2019718afe09",
+		"name": "UsuarioService - Casos de prueba",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "22886517"
+	},
+	"item": [
+		{
+			"name": "✅ Éxito - Datos válidos",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"pm.variables.set(\"trace_id\", crypto.randomUUID());",
+							"pm.variables.set(\"correlation_id\", crypto.randomUUID());"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Carlos\",\n  \"email\": \"carlos@test.com\",\n  \"password\": \"secure1234\",\n  \"age\": 25\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Nombre en blanco",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"\",\n  \"email\": \"prueba@test.com\",\n  \"password\": \"claveSegura\",\n  \"age\": 30\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Email inválido",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Carlos\",\n  \"email\": \"abc@\",\n  \"password\": \"clave123\",\n  \"age\": 30\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Contraseña vacía",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Usuario\",\n  \"email\": \"usu@test.com\",\n  \"password\": \"\",\n  \"age\": 35\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Edad menor a 18",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Menor\",\n  \"email\": \"menor@test.com\",\n  \"password\": \"claveMenor\",\n  \"age\": 15\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Todos los campos inválidos",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Trace-Id",
+						"value": "{{trace_id}}"
+					},
+					{
+						"key": "X-Correlation-Id",
+						"value": "{{correlation_id}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"\",\n  \"email\": \"abc\",\n  \"password\": \"\",\n  \"age\": 10\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "❌ Sin headers de trazabilidad",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Carlos\",\n  \"email\": \"carlos@test.com\",\n  \"password\": \"clave1234\",\n  \"age\": 25\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/usuario",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"usuario"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

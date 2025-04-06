@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+    
+    <!-- Colores en consola -->
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%highlight(%-5level)] [%X{traceId:-N/A}] [%X{correlationId:-N/A}] [%thread] %cyan(%logger{36}) - %msg%n"/>
+    
+    <!-- Ruta a logs si quieres activar archivo -->
+    <property name="LOG_FILE" value="logs/spring-application.log"/>
+    <property name="LOG_LEVEL_PATTERN" value="%5p"/>
+    
+    <!-- Codificación por defecto -->
+    <property name="ENCODING" value="UTF-8"/>
+    
+    <!-- Appender: Consola -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>${ENCODING}</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Appender: Archivo (opcional) -->
+    <!--
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/spring-application.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-N/A}] [%X{correlationId:-N/A}] %logger{36} - %msg%n</pattern>
+            <charset>${ENCODING}</charset>
+        </encoder>
+    </appender>
+    -->
+    
+    <!-- Nivel raíz -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <!-- <appender-ref ref="FILE"/> -->
+    </root>
+    
+    <!-- Nivel específico por paquete (ajusta según tu app) -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="co.g3a" level="DEBUG"/>
+
+</configuration>

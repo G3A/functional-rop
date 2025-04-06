@@ -2,6 +2,7 @@ package co.g3a.functionalrop;
 
 import java.util.ResourceBundle;
 
+
 public class ErrorMessageProvider {
     private final ResourceBundle bundle;
 

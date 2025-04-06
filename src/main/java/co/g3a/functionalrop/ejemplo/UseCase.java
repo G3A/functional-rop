@@ -3,16 +3,18 @@ package co.g3a.functionalrop.ejemplo;
 import co.g3a.functionalrop.*;
 import co.g3a.functionalrop.logging.ConsoleStructuredLogger;
 import co.g3a.functionalrop.logging.StructuredLogger;
+import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.List;
 import java.util.function.Function;
 
+@Service
 public class UseCase {
 
     private final ErrorMessageProvider messages;
-    private final StructuredLogger logger = new ConsoleStructuredLogger();
+    private final StructuredLogger logger = new ConsoleStructuredLogger();//Se puede indicar null si no se desea ningun tipo de logger
 
     public UseCase(ErrorMessageProvider messages) {
         this.messages = messages;
@@ -167,6 +169,9 @@ public class UseCase {
         useCase.ejecutarYMostrarConsultaParalela();
     }
 
+    /**
+     * As a user I want to update my name and email address
+     * */
     private void alternativaDeUso3() {
         var request = new Request(
                 " TEST@ejemplo.COM ",
