@@ -1,4 +1,4 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.ejemplo.errorhandling.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
