@@ -1,10 +1,11 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.core;
 
 import co.g3a.functionalrop.logging.StructuredLogger;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,11 +13,19 @@ public class DeadEndStringTest {
 
     StructuredLogger logger = (event, data) -> System.out.println("📋 LOG [" + event + "]: " + data);
 
+
+    private final DeadEnd deadEnd;
+
+    DeadEndStringTest(){
+        Executor executor = Executors.newVirtualThreadPerTaskExecutor();//O usa Runnable::run para ejecución sincrónica.
+        this.deadEnd = new DeadEnd(executor);
+    }
+
     @Test
     void runSafe_success_withStringError() {
         String input = "OK";
 
-        CompletionStage<Result<String, String>> future = DeadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
                 input,
                 val -> System.out.println("Procesando: " + val),
                 ex -> "⚠️ Error capturado: " + ex.getMessage(),
@@ -34,7 +43,7 @@ public class DeadEndStringTest {
     void runSafe_failure_withStringError() {
         String input = "FAIL";
 
-        CompletionStage<Result<String, String>> future = DeadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
                 input,
                 val -> {
                     throw new RuntimeException("💥 Excepción controlada");
@@ -53,7 +62,7 @@ public class DeadEndStringTest {
 
     @Test
     void runSafeTransform_success_withStringError() {
-        CompletionStage<Result<String, String>> future = DeadEnd.runSafeTransform(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
                 10,
                 value -> "Resultado calculado: " + (value + 5),
                 ex -> "❌ Fallo al transformar: " + ex.getMessage(),
@@ -69,7 +78,7 @@ public class DeadEndStringTest {
 
     @Test
     void runSafeTransform_failure_withStringError() {
-        CompletionStage<Result<String, String>> future = DeadEnd.runSafeTransform(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
                 123,
                 value -> {
                     throw new IllegalArgumentException("¡Transformación no permitida!");

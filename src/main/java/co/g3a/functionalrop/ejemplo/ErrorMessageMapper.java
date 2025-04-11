@@ -1,10 +1,8 @@
 package co.g3a.functionalrop.ejemplo;
 
-import org.springframework.stereotype.Component;
-
 import java.util.stream.Collectors;
 
-@Component
+
 public class ErrorMessageMapper {
 
     public static String toUserMessage(AppError error) {

@@ -1,4 +1,4 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.core;
 
 import java.util.List;
 import java.util.function.Function;

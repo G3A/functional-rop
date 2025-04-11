@@ -1,23 +1,27 @@
 package co.g3a.functionalrop.ejemplo;
 
-import co.g3a.functionalrop.*;
+import co.g3a.functionalrop.core.*;
+import co.g3a.functionalrop.errors.ErrorMessageProvider;
 import co.g3a.functionalrop.logging.ConsoleStructuredLogger;
 import co.g3a.functionalrop.logging.StructuredLogger;
-import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 
-@Service
+
 public class UseCase {
 
     private final ErrorMessageProvider messages;
     private final StructuredLogger logger = new ConsoleStructuredLogger();//Se puede indicar null si no se desea ningun tipo de logger
+    private final DeadEnd deadEnd;
 
     public UseCase(ErrorMessageProvider messages) {
         this.messages = messages;
+        Executor executor = Runnable::run;
+        this.deadEnd = new DeadEnd(executor);
     }
 
     public static class Request {
@@ -102,7 +106,7 @@ public class UseCase {
     }
 
     public CompletionStage<Result<Request, AppError>> updateDb(Request r) {
-        return DeadEnd.runSafe(
+        return deadEnd.runSafe(
                 r,
                 req -> {
                     System.out.println("🗃️ Guardando en base de datos: " + req.email);
@@ -115,7 +119,7 @@ public class UseCase {
     }
 
     public CompletionStage<Result<Request, AppError>> sendEmail(Request r) {
-        return DeadEnd.runSafe(
+        return deadEnd.runSafe(
                 r,
                 req -> {
                     System.out.println("📧 Enviando email a: " + req.email);
@@ -129,7 +133,7 @@ public class UseCase {
     }
 
     public CompletionStage<Result<String, AppError>> generateActivationCode(Request r) {
-        return DeadEnd.runSafeTransform(
+        return deadEnd.runSafeTransform(
                 r,
                 req -> {
                     if (req.email.contains("@example.com")) {

@@ -1,6 +1,5 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.logging;
 
-import co.g3a.functionalrop.logging.StructuredLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,4 +1,4 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.core;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

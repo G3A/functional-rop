@@ -1,9 +1,10 @@
-package co.g3a.functionalrop;
+package co.g3a.functionalrop.example;
 
-import co.g3a.functionalrop.Result;
+import co.g3a.functionalrop.core.Result;
 import co.g3a.functionalrop.ejemplo.AppError;
 import co.g3a.functionalrop.ejemplo.DatosUsuario;
 import co.g3a.functionalrop.ejemplo.UseCase;
+import co.g3a.functionalrop.errors.ErrorMessageProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionStage;
