@@ -62,12 +62,12 @@ public class DeadEndTest {
     }
 
     @Test
-    void runSafeTransform_success() {
+    void runSafeResultTransform_success() {
         Integer input = 5;
 
-        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeTransform(
+        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
-                val -> "Resultado calculado: " + (val * 2),
+                val -> Result.success("Resultado calculado: " + (val * 2)),
                 ex -> new AppError.ActivationCodeError("Transformación fallida: " + ex.getMessage()),
                 "test_transform_success_event",
                 logger
@@ -80,10 +80,10 @@ public class DeadEndTest {
     }
 
     @Test
-    void runSafeTransform_failureWithMappedError() {
+    void runSafeResultTransform_failureWithMappedError() {
         Integer input = 42;
 
-        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeTransform(
+        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
                 val -> {
                     throw new RuntimeException("🔥 Error en transform");

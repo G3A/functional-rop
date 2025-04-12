@@ -133,13 +133,13 @@ public class UseCase {
     }
 
     public CompletionStage<Result<String, AppError>> generateActivationCode(Request r) {
-        return deadEnd.runSafeTransform(
+        return deadEnd.runSafeResultTransform(
                 r,
                 req -> {
                     if (req.email.contains("@example.com")) {
                         throw new IllegalArgumentException("Dominio no permitido");
                     }
-                    return "AC-" + System.currentTimeMillis();
+                    return Result.success("AC-" + System.currentTimeMillis());
                 },
                 ex -> new AppError.ActivationCodeError("Fallo generando código: " + ex.getMessage()),
                 "generate_activation_code",

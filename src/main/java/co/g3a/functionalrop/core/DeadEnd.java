@@ -62,35 +62,51 @@ public class DeadEnd {
     // ------------------------------------------------------------------------------------------------
     // 2️⃣ Transformer function: applies a function In -> Out with side effects, wraps in Result
     // ------------------------------------------------------------------------------------------------
-    public <In, Out, E> CompletionStage<Result<Out, E>> runSafeTransform(
+    public <In, Out, E> CompletionStage<Result<Out, E>> runSafeResultTransform(
             In input,
-            DeadEndFunction<In, Out> function,
+            Function<In, Result<Out, E>> function,
             Function<Throwable, E> errorMapper,
             String eventName,
-            StructuredLogger logger
-    ) {
+            StructuredLogger logger) {
+
         return CompletableFuture.supplyAsync(() -> {
-            long start = System.currentTimeMillis();
+            long startTime = System.currentTimeMillis();
+
             try {
-                Out output = function.apply(input);
-                long duration = System.currentTimeMillis() - start;
-                logger.log(eventName, Map.of(
-                        "status", "success",
-                        "duration_ms", duration,
-                        "input", input,
-                        "output", output
-                ));
-                return Result.success(output);
+                Result<Out, E> result = function.apply(input);
+
+                long duration = System.currentTimeMillis() - startTime;
+
+                if (result.isSuccess()) {
+                    logger.log(eventName, Map.of(
+                            "status", "success",
+                            "duration_ms", duration,
+                            "input", input,
+                            "output", result.getValue()
+                    ));
+                } else {
+                    logger.log(eventName, Map.of(
+                            "status", "failure",
+                            "duration_ms", duration,
+                            "input", input,
+                            "error", result.getError().toString()
+                    ));
+                }
+
+                return result;
+
             } catch (Exception e) {
-                long duration = System.currentTimeMillis() - start;
+                long duration = System.currentTimeMillis() - startTime;
+
                 logger.log(eventName, Map.of(
-                        "status", "failure",
+                        "status", "exception",
                         "duration_ms", duration,
                         "error", e.getMessage(),
                         "input", input
                 ));
+
                 return Result.failure(errorMapper.apply(e));
             }
-        }, executor);
+        }, this.executor);
     }
 }

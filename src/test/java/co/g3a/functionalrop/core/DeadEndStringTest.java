@@ -61,10 +61,10 @@ public class DeadEndStringTest {
     }
 
     @Test
-    void runSafeTransform_success_withStringError() {
-        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
+    void runSafeResultTransform_success_withStringError() {
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 10,
-                value -> "Resultado calculado: " + (value + 5),
+                value -> Result.success("Resultado calculado: " + (value + 5)),
                 ex -> "❌ Fallo al transformar: " + ex.getMessage(),
                 "runSafeTransform_success",
                 logger
@@ -77,8 +77,8 @@ public class DeadEndStringTest {
     }
 
     @Test
-    void runSafeTransform_failure_withStringError() {
-        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
+    void runSafeResultTransform_failure_withStringError() {
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 123,
                 value -> {
                     throw new IllegalArgumentException("¡Transformación no permitida!");

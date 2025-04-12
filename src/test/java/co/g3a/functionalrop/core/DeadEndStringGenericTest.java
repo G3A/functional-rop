@@ -67,10 +67,10 @@ public class DeadEndStringGenericTest {
 
     @Test
     @DisplayName("🟢 runSafeTransform - éxito con String -> String")
-    void runSafeTransform_success_withStringError() {
-        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
+    void runSafeResultTransform_success_withStringError() {
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 100,
-                value -> "Resultado: " + (value + 1),
+                value -> Result.success("Resultado: " + (value + 1)),
                 ex -> "❌ Error transformando: " + ex.getMessage(),
                 "runSafeTransform_success",
                 logger
@@ -84,8 +84,8 @@ public class DeadEndStringGenericTest {
 
     @Test
     @DisplayName("🔴 runSafeTransform - con excepción transformada a String")
-    void runSafeTransform_failure_withStringError() {
-        CompletionStage<Result<String, String>> future = deadEnd.runSafeTransform(
+    void runSafeResultTransform_failure_withStringError() {
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 "entrada",
                 val -> {
                     throw new IllegalStateException("⚠️ No se puede procesar");
