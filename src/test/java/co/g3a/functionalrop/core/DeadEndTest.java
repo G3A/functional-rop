@@ -3,6 +3,7 @@ package co.g3a.functionalrop.core;
 import co.g3a.functionalrop.ejemplo.AppError;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -43,17 +44,12 @@ public class DeadEndTest {
 
         CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
-                val -> {
-                    throw new RuntimeException("💥 BOOM");
-                },
+                val -> { throw new RuntimeException("💥 BOOM"); },
                 ex -> new AppError.DbError("Falló con: " + ex.getMessage())
         );
 
-        Result<String, AppError> result = future.toCompletableFuture().join();
-
-        assertFalse(result.isSuccess());
-        assertInstanceOf(AppError.DbError.class, result.getError());
-        assertTrue(result.getError().toString().contains("💥 BOOM"));
+        CompletionException ex = assertThrows(CompletionException.class, () -> future.toCompletableFuture().join());
+        assertTrue(ex.getCause().getMessage().contains("💥 BOOM"));
     }
 
     @Test

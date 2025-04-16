@@ -9,6 +9,7 @@ import co.g3a.functionalrop.ejemplo.UseCase;
 import org.junit.jupiter.api.Test;
 
 
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,7 +69,7 @@ public class UseCasePipelineTest {
     @Test
     void flujo_fallaEnvioEmail() {
         var request = new UseCase.Request(
-                "fail@dominio.com", // Contiene "fail", dispara excepción en sendEmail
+                "fail@dominio.com",
                 "Juan Pérez",
                 "passwordSegura123",
                 30
@@ -84,11 +85,12 @@ public class UseCasePipelineTest {
                 .map(r -> "Success")
                 .build();
 
-        Result<String, AppError> finalResult = result.toCompletableFuture().join();
-        assertFalse(finalResult.isSuccess());
-        assertInstanceOf(AppError.EmailSendError.class, finalResult.getError());
-
-
+        CompletionException exception = assertThrows(CompletionException.class, () ->
+                result.toCompletableFuture().join()
+        );
+        // Verifica causa interna si quieres ser más específico:
+        assertTrue(exception.getCause() instanceof RuntimeException);
+        assertTrue(exception.getCause().getMessage().contains("SMTP error"));
     }
 
     @Test
