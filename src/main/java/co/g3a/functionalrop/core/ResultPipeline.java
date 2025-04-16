@@ -50,8 +50,8 @@ public class ResultPipeline<T, E> {
         CompletionStage<Result<T, E>> newResult = result.thenApply(res -> {
             if (!res.isSuccess()) return res;
             ValidationResult<T> validation = validator.apply(res.getValue());
-            if (!validation.isValid()) {
-                return Result.failure(errorMapper.apply(validation.getErrors().get(0)));
+            if (validation.isValid()) {
+                return Result.failure(errorMapper.apply(validation.getErrors().getFirst()));
             }
             return Result.success(validation.getValue());
         });

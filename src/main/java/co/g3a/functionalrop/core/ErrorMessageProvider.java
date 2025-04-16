@@ -1,4 +1,4 @@
-package co.g3a.functionalrop.errors;
+package co.g3a.functionalrop.core;
 
 import java.util.ResourceBundle;
 

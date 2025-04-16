@@ -4,7 +4,6 @@ import co.g3a.functionalrop.core.Result;
 import co.g3a.functionalrop.ejemplo.AppError;
 import co.g3a.functionalrop.ejemplo.DatosUsuario;
 import co.g3a.functionalrop.ejemplo.UseCase;
-import co.g3a.functionalrop.errors.ErrorMessageProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionStage;
@@ -13,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UseCaseTest {
 
-    private final UseCase useCase = new UseCase(new ErrorMessageProvider("es"));
+    private final UseCase useCase = new UseCase();
 
     @Test
     void consultarDatosUsuarioParalelo_exito() {
@@ -33,7 +32,7 @@ class UseCaseTest {
 
     @Test
     void consultarDatosUsuarioParalelo_fallaNombre() {
-        UseCase useCaseError = new UseCase(new ErrorMessageProvider("es")) {
+        UseCase useCaseError = new UseCase() {
             @Override
             public CompletionStage<Result<String, AppError>> buscarNombreUsuario(String id) {
                 return simulateFailure(new AppError.DbError("Nombre no encontrado"), 100);
@@ -46,15 +45,15 @@ class UseCaseTest {
         Result<DatosUsuario, AppError> result = future.toCompletableFuture().join();
 
         assertFalse(result.isSuccess(), "Debe fallar");
-        assertTrue(result.getError() instanceof AppError.MultipleErrors);
+        assertInstanceOf(AppError.MultipleErrors.class, result.getError());
         AppError.MultipleErrors errors = (AppError.MultipleErrors) result.getError();
         assertEquals(1, errors.errors().size());
-        assertTrue(errors.errors().get(0) instanceof AppError.DbError);
+        assertInstanceOf(AppError.DbError.class, errors.errors().getFirst());
     }
 
     @Test
     void consultarDatosUsuarioParalelo_fallaMultiple() {
-        UseCase useCaseMultiError = new UseCase(new ErrorMessageProvider("es")) {
+        UseCase useCaseMultiError = new UseCase() {
             @Override
             public CompletionStage<Result<String, AppError>> buscarNombreUsuario(String id) {
                 return simulateFailure(new AppError.DbError("Nombre no disponible"), 50);
@@ -72,7 +71,7 @@ class UseCaseTest {
         Result<DatosUsuario, AppError> result = future.toCompletableFuture().join();
 
         assertFalse(result.isSuccess(), "Debe fallar");
-        assertTrue(result.getError() instanceof AppError.MultipleErrors);
+        assertInstanceOf(AppError.MultipleErrors.class, result.getError());
         AppError.MultipleErrors errors = (AppError.MultipleErrors) result.getError();
         assertEquals(2, errors.errors().size());
     }

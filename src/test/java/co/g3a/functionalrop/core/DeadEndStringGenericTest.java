@@ -1,6 +1,5 @@
 package co.g3a.functionalrop.core;
 
-import co.g3a.functionalrop.logging.StructuredLogger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +15,6 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class DeadEndStringGenericTest {
 
-    // Logger de prueba (simula log estructurado)
-    StructuredLogger logger = (event, data) -> {
-        System.out.println("🔍 EVENT: " + event + " 👉 DATA: " + data);
-    };
     private final DeadEnd deadEnd;
 
     DeadEndStringGenericTest(){
@@ -33,12 +28,13 @@ public class DeadEndStringGenericTest {
     void runSafe_success_withStringError() {
         String input = "input correcto";
 
-        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 input,
-                value -> System.out.println("🙂 Procesando: " + value),
-                ex -> "❌ Error capturado: " + ex.getMessage(),
-                "runSafe_test_success",
-                logger
+                function -> {
+                    System.out.println("🙂 Procesando: " + input);
+                    return Result.success(input);
+                },
+                ex -> "❌ Error capturado: " + ex.getMessage()
         );
 
         Result<String, String> result = future.toCompletableFuture().join();
@@ -50,19 +46,19 @@ public class DeadEndStringGenericTest {
     @Test
     @DisplayName("🔴 runSafe - falla con error mapeado (String)")
     void runSafe_failure_withStringError() {
-        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 "valor de entrada",
-                val -> { throw new RuntimeException("🔨 Error interno"); },
-                ex -> "❌ Error simple: " + ex.getMessage(),
-                "runSafe_test_failure",
-                logger
+                function -> { throw new RuntimeException("🔨 Error interno"); },
+                ex -> "❌ Error simple: " + ex.getMessage()
         );
 
-        Result<String, String> result = future.toCompletableFuture().join();
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            future.toCompletableFuture().join();
+        });
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getError().startsWith("❌ Error simple:"));
-        assertTrue(result.getError().contains("🔨 Error interno"));
+        String expectedMessage = "❌ Error simple: 🔨 Error interno";
+        String actualMessage = exception.getMessage();
+        assertTrue(actualMessage.contains(expectedMessage));
     }
 
     @Test
@@ -71,9 +67,7 @@ public class DeadEndStringGenericTest {
         CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 100,
                 value -> Result.success("Resultado: " + (value + 1)),
-                ex -> "❌ Error transformando: " + ex.getMessage(),
-                "runSafeTransform_success",
-                logger
+                ex -> "❌ Error transformando: " + ex.getMessage()
         );
 
         Result<String, String> result = future.toCompletableFuture().join();
@@ -83,22 +77,43 @@ public class DeadEndStringGenericTest {
     }
 
     @Test
-    @DisplayName("🔴 runSafeTransform - con excepción transformada a String")
+    @DisplayName("🔴 runSafeTransform - con error de negocio")
     void runSafeResultTransform_failure_withStringError() {
         CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 "entrada",
                 val -> {
-                    throw new IllegalStateException("⚠️ No se puede procesar");
+                    return Result.failure("⚠️ No se puede procesar");
                 },
-                ex -> "❌ Error transformado: " + ex.getMessage(),
-                "runSafeTransform_failure",
-                logger
+                ex -> "❌ Error transformado: " + ex.getMessage()
         );
 
         Result<String, String> result = future.toCompletableFuture().join();
 
         assertFalse(result.isSuccess());
-        assertTrue(result.getError().startsWith("❌ Error transformado:"));
-        assertTrue(result.getError().contains("⚠️ No se puede procesar"));
+        assertTrue(result.getError().startsWith("⚠️ No se puede procesar"));
+
+    }
+
+    @Test
+    @DisplayName("🔴 runSafeTransform - con excepción transformada a String")
+    void runSafeResultTransform_exception_withStringError() {
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
+                "entrada",
+                val -> {
+                    throw new RuntimeException("⚠️ No se puede procesar");
+                },
+                ex -> "❌ Error transformado: " + ex.getMessage()
+        );
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            future.toCompletableFuture().join();
+        });
+
+        String expectedMessage = "❌ Error transformado: ⚠️ No se puede procesar";
+        String actualMessage = exception.getMessage();
+
+        assertTrue(actualMessage.contains(expectedMessage));
+
+
+
     }
 }

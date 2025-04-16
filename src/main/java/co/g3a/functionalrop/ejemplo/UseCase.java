@@ -1,10 +1,6 @@
 package co.g3a.functionalrop.ejemplo;
 
 import co.g3a.functionalrop.core.*;
-import co.g3a.functionalrop.errors.ErrorMessageProvider;
-import co.g3a.functionalrop.logging.ConsoleStructuredLogger;
-import co.g3a.functionalrop.logging.StructuredLogger;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.List;
@@ -13,13 +9,9 @@ import java.util.function.Function;
 
 
 public class UseCase {
-
-    private final ErrorMessageProvider messages;
-    private final StructuredLogger logger = new ConsoleStructuredLogger();//Se puede indicar null si no se desea ningun tipo de logger
     private final DeadEnd deadEnd;
 
-    public UseCase(ErrorMessageProvider messages) {
-        this.messages = messages;
+    public UseCase() {
         Executor executor = Runnable::run;
         this.deadEnd = new DeadEnd(executor);
     }
@@ -50,8 +42,8 @@ public class UseCase {
 
     public CompletionStage<Result<String, AppError>> executeUseCase(Request request) {
         ValidationResult<Request> validation = validateRequest(request);
-        if (!validation.isValid()) {
-            AppError error = mapValidationToAppError(validation.getErrors().get(0));
+        if (validation.isValid()) {
+            AppError error = mapValidationToAppError(validation.getErrors().getFirst());
             return CompletableFuture.completedFuture(Result.failure(error));
         }
 
@@ -105,45 +97,42 @@ public class UseCase {
         return r;
     }
 
-    public CompletionStage<Result<Request, AppError>> updateDb(Request r) {
-        return deadEnd.runSafe(
-                r,
-                req -> {
-                    System.out.println("🗃️ Guardando en base de datos: " + req.email);
-                    sleep(100);
-                },
-                ex -> new AppError.DbError("Error guardando en DB: " + ex.getMessage()),
-                "update_db",
-                logger
-        );
-    }
-
-    public CompletionStage<Result<Request, AppError>> sendEmail(Request r) {
-        return deadEnd.runSafe(
-                r,
-                req -> {
-                    System.out.println("📧 Enviando email a: " + req.email);
-                    if (req.email.contains("fail")) throw new RuntimeException("SMTP error");
-                    sleep(100);
-                },
-                ex -> new AppError.EmailSendError("Error al enviar email: " + ex.getMessage()),
-                "send_email",
-                logger
-        );
-    }
-
-    public CompletionStage<Result<String, AppError>> generateActivationCode(Request r) {
+    public CompletionStage<Result<Request, AppError>> updateDb(Request input) {
         return deadEnd.runSafeResultTransform(
-                r,
-                req -> {
-                    if (req.email.contains("@example.com")) {
-                        throw new IllegalArgumentException("Dominio no permitido");
+                input,
+                function -> {
+                    System.out.println("🗃️ Guardando en base de datos: " + input.email);
+                    sleep(100);
+                    return Result.success(input);
+                },
+                ex -> new AppError.DbError("Error guardando en DB: " + ex.getMessage())
+        );
+    }
+
+    public CompletionStage<Result<Request, AppError>> sendEmail(Request input) {
+        return deadEnd.runSafeResultTransform(
+                input,
+                function -> {
+                    System.out.println("📧 Enviando email a: " + input.email);
+                    if (input.email.contains("fail")) throw new RuntimeException("SMTP error");
+                    sleep(100);
+                    return Result.success(input);
+                },
+                ex -> new AppError.EmailSendError("Error al enviar email: " + ex.getMessage())
+        );
+    }
+
+    public CompletionStage<Result<String, AppError>> generateActivationCode(Request input) {
+        return deadEnd.runSafeResultTransform(
+                input,
+                function -> {
+                    if (input.email.contains("@example.com")) {
+                        var error = new AppError.ActivationCodeError("Dominio no permitido: " + input.email);
+                        return Result.failure(error);
                     }
                     return Result.success("AC-" + System.currentTimeMillis());
                 },
-                ex -> new AppError.ActivationCodeError("Fallo generando código: " + ex.getMessage()),
-                "generate_activation_code",
-                logger
+                ex -> new AppError.ActivationCodeError("Fallo generando código: " + ex.getMessage())
         );
     }
 
@@ -167,8 +156,7 @@ public class UseCase {
     }
 
     public static void main(String[] args) {
-        var provider = new ErrorMessageProvider("es");
-        UseCase useCase = new UseCase(provider);
+        UseCase useCase = new UseCase();
         useCase.alternativaDeUso3();
         useCase.ejecutarYMostrarConsultaParalela();
     }

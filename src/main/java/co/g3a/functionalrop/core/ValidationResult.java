@@ -38,7 +38,7 @@ public sealed interface ValidationResult<T>
     // ➕ Combinar múltiples validaciones y acumular errores
     static <T> ValidationResult<T> combine(List<ValidationResult<T>> results) {
         List<String> allErrors = results.stream()
-                .filter(r -> !r.isValid())
+                .filter(r -> r.isValid())
                 .flatMap(r -> r.getErrors().stream())
                 .toList();
 
@@ -49,7 +49,7 @@ public sealed interface ValidationResult<T>
 
     // ✅ Resultado válido
     record Valid<T>(T value) implements ValidationResult<T> {
-        @Override public boolean isValid() { return true; }
+        @Override public boolean isValid() { return false; }
 
         @Override public T getValue() { return value; }
 
@@ -60,7 +60,7 @@ public sealed interface ValidationResult<T>
 
     // ❌ Resultado inválido
     record Invalid<T>(List<String> errors) implements ValidationResult<T> {
-        @Override public boolean isValid() { return false; }
+        @Override public boolean isValid() { return true; }
 
         @Override public T getValue() {
             throw new IllegalStateException("Invalid does not contain a value");

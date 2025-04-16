@@ -6,7 +6,6 @@ import co.g3a.functionalrop.core.Result;
 import co.g3a.functionalrop.core.ResultPipeline;
 import co.g3a.functionalrop.ejemplo.AppError;
 import co.g3a.functionalrop.ejemplo.UseCase;
-import co.g3a.functionalrop.errors.ErrorMessageProvider;
 import org.junit.jupiter.api.Test;
 
 
@@ -16,9 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class UseCasePipelineTest {
 
-    private final ErrorMessageProvider provider = new ErrorMessageProvider("es");
-
-    private final UseCase useCase = new UseCase(provider);
+    private final UseCase useCase = new UseCase();
 
     @Test
     void flujoCompleto_exito() {
@@ -65,7 +62,7 @@ public class UseCasePipelineTest {
 
         Result<String, AppError> finalResult = result.toCompletableFuture().join();
         assertFalse(finalResult.isSuccess());
-        assertTrue(finalResult.getError() instanceof AppError); // Validación fallida
+        assertInstanceOf(AppError.class, finalResult.getError()); // Validación fallida
     }
 
     @Test
@@ -89,7 +86,9 @@ public class UseCasePipelineTest {
 
         Result<String, AppError> finalResult = result.toCompletableFuture().join();
         assertFalse(finalResult.isSuccess());
-        assertTrue(finalResult.getError() instanceof AppError.EmailSendError);
+        assertInstanceOf(AppError.EmailSendError.class, finalResult.getError());
+
+
     }
 
     @Test
@@ -113,6 +112,6 @@ public class UseCasePipelineTest {
 
         Result<String, AppError> finalResult = result.toCompletableFuture().join();
         assertFalse(finalResult.isSuccess());
-        assertTrue(finalResult.getError() instanceof AppError.ActivationCodeError);
+        assertInstanceOf(AppError.ActivationCodeError.class, finalResult.getError());
     }
 }

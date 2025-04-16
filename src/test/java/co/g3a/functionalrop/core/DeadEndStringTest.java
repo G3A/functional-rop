@@ -1,6 +1,5 @@
 package co.g3a.functionalrop.core;
 
-import co.g3a.functionalrop.logging.StructuredLogger;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionStage;
@@ -11,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class DeadEndStringTest {
 
-    StructuredLogger logger = (event, data) -> System.out.println("📋 LOG [" + event + "]: " + data);
 
 
     private final DeadEnd deadEnd;
@@ -25,12 +23,13 @@ public class DeadEndStringTest {
     void runSafe_success_withStringError() {
         String input = "OK";
 
-        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 input,
-                val -> System.out.println("Procesando: " + val),
-                ex -> "⚠️ Error capturado: " + ex.getMessage(),
-                "runSafe_success",
-                logger
+                function -> {
+                    System.out.println("Procesando: " + input);
+                    return Result.success(input);
+                    },
+                ex -> "⚠️ Error capturado: " + ex.getMessage()
         );
 
         Result<String, String> result = future.toCompletableFuture().join();
@@ -43,21 +42,22 @@ public class DeadEndStringTest {
     void runSafe_failure_withStringError() {
         String input = "FAIL";
 
-        CompletionStage<Result<String, String>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 input,
                 val -> {
                     throw new RuntimeException("💥 Excepción controlada");
                 },
-                ex -> "⚠️ Error capturado: " + ex.getMessage(),
-                "runSafe_failure",
-                logger
+                ex -> "⚠️ Error capturado: " + ex.getMessage()
         );
 
-        Result<String, String> result = future.toCompletableFuture().join();
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            future.toCompletableFuture().join();
+        });
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getError().contains("⚠️ Error capturado"));
-        assertTrue(result.getError().contains("💥 Excepción controlada"));
+        String expectedMessage = "⚠️ Error capturado: 💥 Excepción controlada";
+        String actualMessage = exception.getMessage();
+
+        assertTrue(actualMessage.contains(expectedMessage));
     }
 
     @Test
@@ -65,9 +65,7 @@ public class DeadEndStringTest {
         CompletionStage<Result<String, String>> future = deadEnd.runSafeResultTransform(
                 10,
                 value -> Result.success("Resultado calculado: " + (value + 5)),
-                ex -> "❌ Fallo al transformar: " + ex.getMessage(),
-                "runSafeTransform_success",
-                logger
+                ex -> "❌ Fallo al transformar: " + ex.getMessage()
         );
 
         Result<String, String> result = future.toCompletableFuture().join();
@@ -83,15 +81,15 @@ public class DeadEndStringTest {
                 value -> {
                     throw new IllegalArgumentException("¡Transformación no permitida!");
                 },
-                ex -> "❌ Fallo al transformar: " + ex.getMessage(),
-                "runSafeTransform_failure",
-                logger
+                ex -> "❌ Fallo al transformar: " + ex.getMessage()
         );
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            future.toCompletableFuture().join();
+        });
 
-        Result<String, String> result = future.toCompletableFuture().join();
+        String expectedMessage = "❌ Fallo al transformar: ¡Transformación no permitida!";
+        String actualMessage = exception.getMessage();
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getError().startsWith("❌ Fallo al transformar:"));
-        assertTrue(result.getError().contains("Transformación no permitida"));
+        assertTrue(actualMessage.contains(expectedMessage));
     }
 }

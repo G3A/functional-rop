@@ -1,7 +1,6 @@
 package co.g3a.functionalrop.core;
 
 import co.g3a.functionalrop.ejemplo.AppError;
-import co.g3a.functionalrop.logging.StructuredLogger;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionStage;
@@ -12,9 +11,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class DeadEndTest {
 
-    StructuredLogger logger = (eventName, data) -> {
-        System.out.println("🔔 Log: " + eventName + " -> " + data);
-    };
     private final DeadEnd deadEnd;
 
     DeadEndTest(){
@@ -26,12 +22,13 @@ public class DeadEndTest {
     void runSafe_success() {
         String input = "TestInput";
 
-        CompletionStage<Result<String, AppError>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
-                val -> System.out.println("✔️ Ejecutando efecto con: " + val),
-                ex -> new AppError.DbError("Error inesperado: " + ex.getMessage()),
-                "test_success_event",
-                logger
+                function -> {
+                    System.out.println("✔️ Ejecutando efecto con: " + input);
+                    return Result.success(input);
+                },
+                ex -> new AppError.DbError("Error inesperado: " + ex.getMessage())
         );
 
         Result<String, AppError> result = future.toCompletableFuture().join();
@@ -44,14 +41,12 @@ public class DeadEndTest {
     void runSafe_failureWithMappedError() {
         String input = "Fallando";
 
-        CompletionStage<Result<String, AppError>> future = deadEnd.runSafe(
+        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
                 val -> {
                     throw new RuntimeException("💥 BOOM");
                 },
-                ex -> new AppError.DbError("Falló con: " + ex.getMessage()),
-                "test_failure_event",
-                logger
+                ex -> new AppError.DbError("Falló con: " + ex.getMessage())
         );
 
         Result<String, AppError> result = future.toCompletableFuture().join();
@@ -68,9 +63,7 @@ public class DeadEndTest {
         CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
                 input,
                 val -> Result.success("Resultado calculado: " + (val * 2)),
-                ex -> new AppError.ActivationCodeError("Transformación fallida: " + ex.getMessage()),
-                "test_transform_success_event",
-                logger
+                ex -> new AppError.ActivationCodeError("Transformación fallida: " + ex.getMessage())
         );
 
         Result<String, AppError> result = future.toCompletableFuture().join();
@@ -79,24 +72,4 @@ public class DeadEndTest {
         assertEquals("Resultado calculado: 10", result.getValue());
     }
 
-    @Test
-    void runSafeResultTransform_failureWithMappedError() {
-        Integer input = 42;
-
-        CompletionStage<Result<String, AppError>> future = deadEnd.runSafeResultTransform(
-                input,
-                val -> {
-                    throw new RuntimeException("🔥 Error en transform");
-                },
-                ex -> new AppError.ActivationCodeError("Transformación fallida: " + ex.getMessage()),
-                "test_transform_failure_event",
-                logger
-        );
-
-        Result<String, AppError> result = future.toCompletableFuture().join();
-
-        assertFalse(result.isSuccess());
-        assertInstanceOf(AppError.ActivationCodeError.class, result.getError());
-        assertTrue(result.getError().toString().contains("🔥 Error en transform"));
-    }
 }
