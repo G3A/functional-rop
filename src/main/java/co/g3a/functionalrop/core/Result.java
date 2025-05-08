@@ -72,6 +72,32 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
         return isSuccess() ? success(mapper.apply(getValue())) : failure(getError());
     }
 
+    /**
+     * Transforma el valor del error ({@code failure}) de este {@link Result} en otro tipo,
+     * sin afectar el valor en caso de éxito.
+     * <p>
+     * Este método es útil cuando se desea propagar el error a otra capa del sistema
+     * que maneja un tipo de error diferente, como por ejemplo, cuando se traduce un
+     * error de validación de un Value Object a un error específico de un caso de uso.
+     * <p>
+     * Si este {@code Result} es un éxito, se retorna tal cual sin cambios.
+     * Si es un error, se aplica el {@code mapper} para convertir el error al nuevo tipo.
+     *
+     * <pre>{@code
+     * Result<Email, EmailError> emailResult = Email.create("test@example.com");
+     * Result<Email, UseCaseError> mappedResult = emailResult.mapFailure(this::mapEmailToUseCaseError);
+     * }</pre>
+     *
+     * @param mapper función que transforma el error original ({@code E}) al nuevo tipo de error ({@code U})
+     * @param <U>    el nuevo tipo de error con el que se construirá el {@code Result} en caso de error
+     * @return un nuevo {@code Result} con el mismo valor en caso de éxito, o con el error transformado en caso de fallo
+     */
+    default <U> Result<T, U> mapFailure(Function<E, U> mapper) {
+        return this.isSuccess()
+                ? Result.success(this.getValue())
+                : Result.failure(mapper.apply(this.getError()));
+    }
+
     // ➿ flatMap: encadena resultados
 
     /**
