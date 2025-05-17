@@ -75,6 +75,23 @@ public class ResultPipeline<T, E> {
     }
 
     /**
+     * Encadena una operación síncrona que retorna otro {@link Result}.
+     *
+     * @param mapper función transformadora {@code T -> Result<U, E>}
+     * @param <U>    nuevo tipo del valor
+     * @return nueva pipeline con la etapa encadenada
+     */
+    public <U> ResultPipeline<U, E> flatMap(Function<T, Result<U, E>> mapper) {
+        CompletionStage<Result<U, E>> newResult = result.thenApply(res -> {
+            if (res.isSuccess()) {
+                return mapper.apply(res.getValue());
+            }
+            return Result.failure(res.getError());
+        });
+        return new ResultPipeline<>(newResult);
+    }
+
+    /**
      * Encadena una operación asíncrona que retorna otro {@link Result}.
      *
      * @param mapper función transformadora asíncrona {@code T -> CompletionStage<Result<U, E>>}
